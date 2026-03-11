@@ -4,31 +4,673 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ProjectBIBL</title>
-  
-  <!-- SVG Favicon (primary - modern browsers) -->
+
   <link rel="icon" href="purple-bible.svg" type="image/svg+xml">
   
-  <!-- Optional: 32x32 PNG fallback for older systems / better compatibility -->
-  <!-- You can generate this from the SVG using an online tool like https://favicon.io/ or RealFaviconGenerator -->
-  <!-- <link rel="icon" href="purple-bible-32.png" type="image/png" sizes="32x32"> -->
+  <!-- Google Fonts: Comfortaa -->
+  <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;700&display=swap" rel="stylesheet">
   
+  <!-- External Dependencies for the new AI Chat -->
+  <!-- Remix Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <!-- KaTeX -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <!-- Removed 'defer' to ensure katex is loaded before the main script runs -->
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  
+  <!-- Highlight.js (Using full build to prevent manual script errors) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+  
+  <!-- Markdown-it -->
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+
   <style>
-    html, body {
+    /* Existing Bible Styles */
+    body {
+      font-family: 'Comfortaa', cursive; /* Changed to Comfortaa as requested */
+      line-height: 1.6;
+      background-color: #fafafa;
       margin: 0;
       padding: 0;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
+      overflow-x: hidden; /* Prevent horizontal scroll */
     }
-    iframe {
+
+    #mainCtn {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      position: relative;
+      z-index: 1;
+      font-family: 'Comfortaa', cursive; /* Ensuring font consistency */
+    }
+
+    /* Chat Panel Styles (New) */
+    #chatPanelEl {
+      font-family: 'Comfortaa', cursive; /* Ensuring font consistency */
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 380px;
+      max-height: 90vh; /* Increased from 85vh */
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+      display: flex;
+      flex-direction: column;
+      z-index: 1000;
+      transition: all 0.3s ease;
+    }
+
+    /* FIX: Ensure the hidden attribute works reliably on all platforms */
+    #chatPanelEl[hidden] {
+      display: none !important;
+    }
+
+    .chat-header {
+      padding: 15px;
+      background: #9900ff;
+      color: white;
+      border-radius: 12px 12px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0; /* Ensure header doesn't shrink */
+    }
+
+    .chat-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .chat-icon-btn {
+      background: rgba(255,255,255,0.2);
       border: none;
+      color: white;
+      padding: 5px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+      font-family: 'Comfortaa', cursive;
+    }
+
+    .chat-icon-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    /* Messages Area */
+    #messages-container {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      background: #f9f9f9;
+      min-height: 400px; /* Increased default height */
+      overflow-x: hidden; /* Fix layout break on wide content */
+      position: relative; /* Added to ensure absolute children stay within bounds */
+    }
+
+    /* Start Screen */
+    #start-screen {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #f9f9f9;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      transition: opacity 0.3s;
+    }
+
+    #start-screen.gone {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .start-icon {
+      font-size: 3rem;
+      color: #9900ff;
+      margin-bottom: 15px;
+    }
+
+    /* Messages */
+    .message {
+      display: flex;
       width: 100%;
-      height: 100%;
+    }
+
+    .user-message {
+      justify-content: flex-end;
+    }
+
+    .ai-message {
+      justify-content: flex-start;
+    }
+
+    .message-content {
+      padding: 10px 14px;
+      border-radius: 12px;
+      max-width: 85%;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      word-wrap: break-word;
+      position: relative;
+      overflow-wrap: break-word;
+      font-family: 'Comfortaa', cursive;
+    }
+
+    .user-message .message-content {
+      background: #9900ff;
+      color: white;
+      border-bottom-right-radius: 2px;
+    }
+
+    .ai-message .message-content {
+      background: white;
+      color: #333;
+      border: 1px solid #eee;
+      border-bottom-left-radius: 2px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    
+    /* Markdown Styles inside AI message */
+    .ai-block {
+      margin-bottom: 8px;
+    }
+    
+    .ai-block:last-child {
+      margin-bottom: 0;
+    }
+
+    .ai-message p { margin: 0 0 10px 0; }
+    .ai-message p:last-child { margin-bottom: 0; }
+    .ai-message ul, .ai-message ol { padding-left: 20px; margin: 5px 0; }
+    .ai-message strong { color: #000; font-weight: 700; }
+    .ai-message code {
+      background: #f0f0f0;
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.9em;
+      color: #d63384;
+    }
+
+    /* Code Blocks */
+    .code-block-container {
+      background: #1e1e1e;
+      border-radius: 6px;
+      margin: 10px 0;
+      overflow: hidden;
+      color: #fff;
+    }
+
+    .code-block-top-bar {
+      background: #2d2d2d;
+      padding: 5px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: #aaa;
+      font-family: 'Comfortaa', cursive;
+    }
+
+    .code-block-pre {
+      margin: 0;
+      padding: 10px;
+      overflow-x: auto;
+    }
+    
+    .code-block-pre code {
+      color: inherit; 
+      background: none;
+      padding: 0;
+    }
+
+    .code-block-copy-button {
+      background: transparent;
+      border: none;
+      color: #aaa;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.75rem;
+      transition: color 0.2s;
+      font-family: 'Comfortaa', cursive;
+    }
+
+    .code-block-copy-button:hover {
+      color: white;
+    }
+
+    /* Typing Indicator */
+    .typing-indicator {
+      padding: 10px 14px;
+      background: white;
+      border-radius: 12px;
+      border-bottom-left-radius: 2px;
+      border: 1px solid #eee;
+      width: fit-content;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #666;
+      font-size: 0.9rem;
+    }
+
+    .typing-spinner {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* Input Area */
+    .input-bar {
+      padding: 15px;
+      background: white;
+      border-top: 1px solid #eee;
+      border-radius: 0 0 12px 12px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-shrink: 0; /* Ensure input bar stays at bottom */
+    }
+
+    #message-input {
+      flex-grow: 1;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      resize: none;
+      height: 44px;
+      max-height: 120px;
+      font-family: 'Comfortaa', cursive;
+      outline: none;
+      transition: border-color 0.2s, width 0.3s;
+    }
+
+    #message-input:focus {
+      border-color: #9900ff;
+    }
+
+    #send-button {
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: #9900ff;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      transition: background 0.2s, opacity 0.2s;
+    }
+
+    #send-button:hover {
+      background: #8800e6;
+    }
+    
+    #send-button.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Scroll Button */
+    #scroll-to-bottom-btn {
+      position: absolute;
+      bottom: 80px;
+      right: 20px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: white;
+      border: 1px solid #ddd;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      color: #666;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    #scroll-to-bottom-btn.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Message Actions */
+    .message-actions-container {
+      display: flex;
+      justify-content: flex-start;
+      margin-top: 4px;
+      margin-left: 14px;
+      margin-bottom: 10px;
+    }
+
+    .message-actions {
+      display: flex;
+      gap: 8px;
+      opacity: 0; /* Hidden initially */
+    }
+
+    .action-button {
+      background: none;
+      border: none;
+      color: #999;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: color 0.2s, background 0.2s;
+    }
+
+    .action-button:hover {
+      background: #f0f0f0;
+      color: #666;
+    }
+
+    /* Dropdowns */
+    .dropdown-wrapper {
+      position: absolute;
+      top: 50px;
+      right: 10px;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      width: 200px;
+      z-index: 20;
+      display: none;
+      padding: 5px;
+    }
+    
+    .dropdown-wrapper.open {
       display: block;
+    }
+
+    .option {
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      color: #444;
+      font-family: 'Comfortaa', cursive;
+    }
+
+    .option:hover {
+      background: #f5f5f5;
+    }
+
+    .option.selected {
+      background: #f0e6ff;
+      color: #9900ff;
+      font-weight: bold;
+    }
+
+    /* Bible Content Specifics */
+    .verse {
+      margin-bottom: 10px;
+      padding: 5px;
+      border-radius: 4px;
+    }
+    
+    sup {
+      color: #888; 
+      font-size: 0.8em; 
+      margin-right: 5px;
     }
   </style>
 </head>
 <body>
-  <iframe src="https://null.perchance.org/jxo5hw8yst" allowfullscreen allow="fullscreen"></iframe>
-</body>
-</html>
+
+<div id="mainCtn" style="max-width:800px; margin:0 auto; padding:20px; font-family:'Comfortaa', cursive; line-height:1.6;">
+  
+  <!-- Header & Controls -->
+  <div style="display:flex; gap:10px; margin-bottom:20px; align-items:center; flex-wrap:wrap;">
+    <span style="font-size:24px; font-weight:bold; color:#9900ff; margin-right:auto;">ProjectBIBL</span>
+    
+    <select id="versionSelectEl" style="padding:5px; font-family:'Comfortaa', cursive;">
+      <option value="kjv">KJV (King James)</option>
+      <option value="web">WEB (World English Bible)</option>
+      <option value="asv">ASV (American Standard)</option>
+    </select>
+    
+    <button id="chatToggleBtn" onclick="toggleChat()" style="padding:8px 16px; cursor:pointer; background:#9900ff; color:white; border:none; border-radius:4px; font-family:'Comfortaa', cursive;">🤖 AI Chat</button>
+  </div>
+
+  <!-- Navigation / Search Bar -->
+  <div style="background:#f4f4f4; padding:15px; border-radius:8px; display:flex; gap:10px; align-items:center; margin-bottom:20px; flex-wrap:wrap;">
+    <select id="bookSelectEl" style="padding:8px; width:150px; font-family:'Comfortaa', cursive;">
+      <!-- Books will be populated dynamically -->
+    </select>
+    <select id="chapterSelectEl" style="padding:8px; width:70px; font-family:'Comfortaa', cursive;">
+      <!-- Chapters will be populated dynamically -->
+    </select>
+    <button id="goBtn" style="padding:8px 16px; cursor:pointer; background:#9900ff; color:white; border:none; border-radius:4px; font-family:'Comfortaa', cursive;">Read</button>
+    
+    <div style="border-left:1px solid #ccc; height:30px; margin:0 5px;"></div>
+    
+    <button id="prevBtn" style="padding:8px; cursor:pointer; font-family:'Comfortaa', cursive;">&lt; Prev</button>
+    <button id="nextBtn" style="padding:8px; cursor:pointer; font-family:'Comfortaa', cursive;">Next &gt;</button>
+  </div>
+
+  <!-- Verse Selection -->
+  <div style="margin-bottom:15px; display:flex; gap:10px; align-items:center;">
+    <select id="verseSelectEl" style="padding:8px; font-family:'Comfortaa', cursive;">
+      <option value="">Select Verse</option>
+    </select>
+  </div>
+
+  <!-- In-Chapter Search -->
+  <div style="margin-bottom:15px; display:flex; gap:10px;">
+    <input id="searchInputEl" placeholder="Find text in this chapter..." style="flex-grow:1; padding:8px; border:1px solid #ddd; border-radius:4px; font-family:'Comfortaa', cursive;">
+  </div>
+
+  <!-- Content Area -->
+  <div style="position:relative; min-height:200px;">
+    <div id="loadingIndicatorEl" hidden style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-family:'Comfortaa', cursive; color:#666;">Loading Scripture...</div>
+    <h2 id="referenceTitleEl" style="text-align:center; font-family:'Comfortaa', cursive; margin-bottom:20px;"></h2>
+    <div id="bibleContentEl" style="font-size:1.1rem;"></div>
+  </div>
+
+</div>
+
+<!-- AI Chat Panel (Moved outside mainCtn to prevent layout clipping issues) -->
+<div id="chatPanelEl" hidden>
+  <div class="chat-header">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button id="model-dropdown-toggle" class="chat-icon-btn" title="Select Model">
+        <i id="current-model-icon" class="ri-sparkling-2-fill"></i>
+        <span id="current-model-text">Auto</span>
+        <i class="ri-arrow-down-s-line"></i>
+      </button>
+    </div>
+    <div style="display:flex; gap:5px;">
+      <button onclick="toggleChat()" style="background:none; border:none; color:white; font-size:1.2rem; cursor:pointer;">&times;</button>
+    </div>
+  </div>
+
+  <!-- Dropdowns -->
+  <div id="model-dropdown-wrapper" class="dropdown-wrapper">
+    <div class="option selected" data-model="auto">
+      <i class="ri-sparkling-2-fill"></i>
+      <span>Auto</span>
+    </div>
+    <div class="option" data-model="gpt-4o">
+      <i class="ri-openai-fill"></i>
+      <span>GPT-4o</span>
+    </div>
+    <div class="option" data-model="claude-3.5-sonnet">
+      <i class="ri-brain-line"></i>
+      <span>Claude 3.5</span>
+    </div>
+  </div>
+
+  <div id="messages-container">
+    <div id="start-screen">
+      <i class="ri-bible-line start-icon"></i>
+      <h3>Bible Assistant</h3>
+      <p style="color:#666; font-size:0.9rem;">Ask about verses, chapters, or meanings.</p>
+    </div>
+  </div>
+
+  <button id="scroll-to-bottom-btn"><i class="ri-arrow-down-line"></i></button>
+
+  <div class="input-bar">
+    <input id="message-input" placeholder="Ask about the Bible..." autocomplete="off">
+    <button id="send-button"><i class="ri-send-plane-fill"></i></button>
+  </div>
+</div>
+
+<!-- Audio Controls -->
+<div style="position:fixed; bottom:20px; right:20px; background:white; border:1px solid #ccc; padding:10px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); display:flex; gap:10px; align-items:center; z-index: 900;">
+  <span style="font-size:0.9rem; font-family:'Comfortaa', cursive; font-weight:bold;">Audio:</span>
+  <button id="playBtn" onclick="toggleSpeech()" style="font-family:'Comfortaa', cursive;">🔊 Read</button>
+  <button id="stopBtn" onclick="stopSpeech()" hidden style="font-family:'Comfortaa', cursive;">⏹ Stop</button>
+</div>
+
+<script>
+  /* 
+     PROJECT BIBL: BIBLE READER + AI INTEGRATION
+     -------------------------------------------
+     Combines the Bible reader functionality with the provided AI chat implementation.
+     AI Context is injected to ensure it knows it is helping with the Bible.
+  */
+
+  // --- FIX: Define global functions immediately to prevent "not working" on clicks ---
+  
+  // Toggle AI Chat Panel (Safe implementation using getElementById to avoid dependency on variable initialization)
+  function toggleChat() {
+    let el = document.getElementById("chatPanelEl");
+    if (el) {
+      el.hidden = !el.hidden;
+    }
+  }
+
+  // --- AI CONFIGURATION & LOGIC (From User Instruction) ---
+  const BASE = "https://9.dmvdriverseducation.org/worker/aichat";
+  const MAX_CONTEXT_MESSAGES = 15;
+
+  let conversationHistory = [];
+  let isGenerating = false;
+  let isFirstMessage = true;
+  let previousRetryButton = null;
+  
+  // Default personality to ensure it knows its purpose
+  let aiPersonality = localStorage.getItem("vaiPersonality") || "You are a helpful Bible assistant. Your purpose is to help users understand scripture, find verses, explain context, and provide theological insights. Be concise and respectful.";
+  let currentModel = "auto";
+
+  // --- FIX: Initialize Markdown-it safely. If CDN fails or is blocked on Vercel/GitHub, the app won't crash. ---
+  let md = null;
+  if (window.markdownit) {
+    let mdConfig = {
+      html: true,
+      linkify: true,
+      typographer: true,
+      highlight: function (str, lang) {
+        if (lang && window.hljs && window.hljs.getLanguage && window.hljs.getLanguage(lang)) {
+          try {
+            return (
+              '<pre class="hljs"><code class="language-' +
+              lang +
+              '">' +
+              window.hljs.highlight(str, { language: lang, ignoreIllegals: true })
+                .value +
+              "</code></pre>"
+            );
+          } catch (__) {}
+        }
+
+        const langClass = lang ? 'class="language-' + lang + '"' : "";
+        return (
+          '<pre class="hljs"><code ' +
+          langClass +
+          ">" +
+          md.utils.escapeHtml(str) +
+          "</code></pre>"
+        );
+      },
+    };
+    md = window.markdownit(mdConfig);
+  }
+
+  function renderMarkdown(text, targetContainer) {
+    // If markdown-it failed to load, display plain text
+    if (!md) {
+      targetContainer.textContent = text;
+      return;
+    }
+
+    const rawHtml = md.render(text);
+    targetContainer.innerHTML = rawHtml;
+
+    const codeBlocks = targetContainer.querySelectorAll("pre.hljs");
+    codeBlocks.forEach((pre) => {
+      if (pre.parentElement.classList.contains("code-block-container")) return;
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "code-block-container ai-block";
+
+      const codeEl = pre.querySelector("code");
+      let lang = "text";
+      if (codeEl) {
+        const langClass = Array.from(codeEl.classList).find((c) =>
+          c.startsWith("language-")
+        );
+        if (langClass) lang = langClass.replace("language-", "");
+      }
+
+      const topBar = document.createElement("div");
+      topBar.className = "code-block-top-bar";
+
+      const langSpan = document.createElement("span");
+      langSpan.className = "code-block-language";
+      langSpan.textContent = lang;
+
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "code-block-copy-button";
+      copyBtn.innerHTML = `<i class="ri-file-copy-line"></i><span class="copy-text">Copy</span>`;
+
+      wrapper.dataset.code = codeEl ? codeEl.innerText : "";
+
+      topBar.appendChild(langSpan);
+      topBar.appendChild(copyBtn);
+      pre.parentNode.insertBefore(wrapper, pre);
+      wrapper.appendChild(topBar);
+      wrapper.appendChild(pre);
+      pre.className = "code-block-pre";
+    });
+
+    Array.from(targetContainer.children).forEach((child) => {
+      child.classList.add("ai-block");
+      child.style.opacity = "1";
+    });
+  }
+
+  // AI UI References
+  const inputBar = document.querySelector(".input-bar");
+  const messageInput = document.getElementById("message-input");
+  const sendButton = document.getElementById("send-button");
+  const messagesContainer = document.getElementById("messages-container");
+  const startScreen = document.getElementById("start-screen");
+  const scrollBtn = document.getElementById("scroll-to-bottom-btn");
+  const modelDropdownToggle = document.getElementById("model-dropdown-toggle");
+  const modelOptions = document.querySelectorAll(".option");
+  const modelWrapper = document.getElementById("model-dropdown-wrapper");
+  const currentModelIcon = document.getElementById("current-model-ico
